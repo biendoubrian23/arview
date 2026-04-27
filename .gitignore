@@ -1,0 +1,30 @@
+# Dépendances
+node_modules/
+.pnp
+.pnp.js
+
+# Build Next.js
+site/.next/
+site/out/
+site/build/
+
+# Environnement — NE JAMAIS committer .env
+.env
+.env.local
+.env.production
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/settings.json
+.idea/
+
+# Supabase CLI
+supabase/.branches
+supabase/.temp

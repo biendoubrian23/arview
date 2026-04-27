@@ -1,0 +1,3 @@
+// Composants UI de base (boutons, inputs, cartes, badges...)
+// Construire avec shadcn/ui ou from scratch
+export {};
