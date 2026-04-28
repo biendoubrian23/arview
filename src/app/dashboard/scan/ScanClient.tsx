@@ -123,7 +123,9 @@ export default function ScanClient() {
       }
 
       const startRes  = await fetch("/api/scan/start", { method: "POST", body: fd });
-      const startData = await startRes.json();
+      const startData = await startRes.json().catch(() => ({
+        error: `Reponse serveur invalide (${startRes.status})`,
+      }));
       if (!startRes.ok) throw new Error(startData.error ?? `HTTP ${startRes.status}`);
       const { job_id } = startData as { job_id: string };
 

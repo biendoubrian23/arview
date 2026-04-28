@@ -15,9 +15,11 @@ type DragState = { handle: string; startPctX: number; startPctY: number; startBo
 type Phase = "aim" | "ready" | "recording" | "preview" | "error";
 
 const MIN_BOX_PCT = 14;
-const MAX_FRAMES = 120;
+const MAX_FRAMES = 96;
 const MIN_FRAMES = 36;
 const CAPTURE_MS = 250;
+const MAX_CAPTURE_WIDTH = 1280;
+const JPEG_QUALITY = 0.82;
 
 const HANDLES = [
   { id: "nw", left: "0%", top: "0%" },
@@ -134,8 +136,8 @@ export default function BoundingBoxCapture({
       .getUserMedia({
         video: {
           facingMode: { ideal: "environment" },
-          width: { ideal: 1920 },
-          height: { ideal: 1080 },
+          width: { ideal: 1280 },
+          height: { ideal: 720 },
         },
         audio: false,
       })
@@ -215,8 +217,11 @@ export default function BoundingBoxCapture({
     const canvas = canvasRef.current;
     if (!video || !canvas || video.readyState < 2) return;
 
-    canvas.width = video.videoWidth || 1920;
-    canvas.height = video.videoHeight || 1080;
+    const sourceWidth = video.videoWidth || 1280;
+    const sourceHeight = video.videoHeight || 720;
+    const scale = Math.min(1, MAX_CAPTURE_WIDTH / sourceWidth);
+    canvas.width = Math.round(sourceWidth * scale);
+    canvas.height = Math.round(sourceHeight * scale);
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
@@ -228,7 +233,7 @@ export default function BoundingBoxCapture({
         if (framesRef.current.length >= MAX_FRAMES) finishRecording();
       },
       "image/jpeg",
-      0.92,
+      JPEG_QUALITY,
     );
   }
 

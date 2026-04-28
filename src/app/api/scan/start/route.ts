@@ -11,7 +11,16 @@ export async function POST(req: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
 
-  const formData = await req.formData();
+  let formData: FormData;
+  try {
+    formData = await req.formData();
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return NextResponse.json(
+      { error: `Upload incomplet ou trop lourd: ${msg}` },
+      { status: 413 },
+    );
+  }
 
   // Accept both single "image" (legacy) and multiple "images[]"
   const imageFiles = formData.getAll("images") as File[];
