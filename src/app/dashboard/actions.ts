@@ -93,12 +93,12 @@ export async function deleteModel(modelId: string) {
 
   const { data: model } = await supabase
     .from("models")
-    .select("file_path, source_video_path, thumbnail_path, user_id")
+    .select("file_path, splat_path, source_video_path, thumbnail_path, user_id")
     .eq("id", modelId)
     .single();
   if (!model || model.user_id !== user.id) return { error: "Introuvable." };
 
-  const paths = [model.file_path, model.source_video_path, model.thumbnail_path].filter(
+  const paths = [model.file_path, model.splat_path, model.source_video_path, model.thumbnail_path].filter(
     Boolean
   ) as string[];
   if (paths.length) await supabase.storage.from(BUCKET).remove(paths);

@@ -21,8 +21,7 @@ import aiohttp
 WORK_DIR = Path(tempfile.gettempdir()) / "scanar_backend"
 REPLICATE_API = "https://api.replicate.com/v1"
 
-# Visit https://replicate.com/camenduru/triposr → "API" tab to get the latest version hash
-TRIPOSR_VERSION = "0b7588b6b0d84c4348d63ae3db0a0e62d9e9f5b47d1f4b74e1fda7ef0a6e7d5"
+REPLICATE_MODEL = os.getenv("REPLICATE_MODEL", "camenduru/triposr")
 
 
 async def process_with_replicate(image_path: Path, job_id: str, update_job: Callable) -> Path:
@@ -50,11 +49,11 @@ async def process_with_replicate(image_path: Path, job_id: str, update_job: Call
     update_job(job_id, status="processing", progress=15, message="Envoi vers Replicate (cloud)…")
 
     async with aiohttp.ClientSession() as session:
-        # Create prediction
+        # Create prediction via model-name endpoint (no version hash needed)
         async with session.post(
-            f"{REPLICATE_API}/predictions",
+            f"{REPLICATE_API}/models/{REPLICATE_MODEL}/predictions",
             headers=headers,
-            json={"version": TRIPOSR_VERSION, "input": {"image": img_uri}},
+            json={"input": {"image": img_uri}},
         ) as resp:
             if resp.status not in (200, 201):
                 body = await resp.text()

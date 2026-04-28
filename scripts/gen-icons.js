@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-require-imports */
 const fs = require("fs");
 fs.mkdirSync("public/icons", { recursive: true });
 function makePNG(size, outPath) {

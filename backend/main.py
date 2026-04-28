@@ -1,71 +1,126 @@
-"""ScanAR Python Backend — 3D reconstruction from image/video frames.
+"""ARView local reconstruction backend.
 
-Modes (set via SCAN_MODE in .env):
-  local     → TripoSR on local GPU (RTX 4070 Ti)
-  replicate → TripoSR on Replicate cloud API
+The backend receives guided multi-view captures from the Next.js app and runs a
+local GPU photogrammetry pipeline:
+
+1. frame preparation and sharpness filtering
+2. COLMAP camera reconstruction via nerfstudio's ns-process-data
+3. Gaussian Splat training/export with nerfstudio splatfacto
+4. optional OpenMVS/COLMAP mesh export to GLB for web AR
 """
 
-import os
-import uuid
-import tempfile
-from pathlib import Path
+from __future__ import annotations
 
-from fastapi import FastAPI, UploadFile, BackgroundTasks, HTTPException
-from fastapi.responses import FileResponse
-from fastapi.middleware.cors import CORSMiddleware
+import json
+import os
+import tempfile
+import uuid
+from pathlib import Path
+from shutil import which
+from typing import Any, Optional
+
 from dotenv import load_dotenv
+from fastapi import BackgroundTasks, FastAPI, File, Form, HTTPException, UploadFile
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
+
+from processors.photogrammetry import ArtifactMap, PipelineConfig, process_multiview_capture
 
 load_dotenv()
 
-SCAN_MODE = os.getenv("SCAN_MODE", "local")
-WORK_DIR = Path(tempfile.gettempdir()) / "scanar_backend"
-WORK_DIR.mkdir(exist_ok=True)
+WORK_DIR = Path(os.getenv("ARVIEW_WORK_DIR", Path(tempfile.gettempdir()) / "arview_backend"))
+WORK_DIR.mkdir(parents=True, exist_ok=True)
 
-# In-memory job store (fine for local dev; use Redis for production)
-jobs: dict[str, dict] = {}
+jobs: dict[str, dict[str, Any]] = {}
 
-app = FastAPI(title="ScanAR Backend", version="1.0.0")
+app = FastAPI(title="ARView GPU Backend", version="2.0.0")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],
+    allow_origins=["*"],
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
 
-def update_job(job_id: str, **kwargs) -> None:
+def update_job(job_id: str, **kwargs: Any) -> None:
     jobs.setdefault(job_id, {}).update(kwargs)
 
 
-async def run_pipeline(job_id: str, image_path: Path) -> None:
+def parse_capture(raw: str | None) -> dict[str, Any]:
+    if not raw:
+        return {}
     try:
-        if SCAN_MODE == "replicate":
-            from processors.replicate_api import process_with_replicate
-            glb_path = await process_with_replicate(image_path, job_id, update_job)
-        else:
-            from processors.local_gpu import process_with_triposr
-            glb_path = await process_with_triposr(image_path, job_id, update_job)
+        data = json.loads(raw)
+    except json.JSONDecodeError as exc:
+        raise HTTPException(status_code=400, detail=f"capture JSON invalide: {exc}") from exc
+    if not isinstance(data, dict):
+        raise HTTPException(status_code=400, detail="capture doit etre un objet JSON")
+    return data
 
-        update_job(job_id, status="done", progress=100, message="Modèle prêt !", glb_path=str(glb_path))
+
+async def save_frames(job_id: str, files: list[UploadFile]) -> Path:
+    input_dir = WORK_DIR / job_id / "input"
+    input_dir.mkdir(parents=True, exist_ok=True)
+
+    for index, image in enumerate(files):
+        content_type = image.content_type or ""
+        if "image" not in content_type:
+            raise HTTPException(status_code=400, detail=f"Fichier non image: {image.filename}")
+        ext = ".jpg" if "jpeg" in content_type or "jpg" in content_type else ".png"
+        frame_path = input_dir / f"frame_{index:04d}{ext}"
+        frame_path.write_bytes(await image.read())
+
+    return input_dir
+
+
+async def run_pipeline(job_id: str, input_dir: Path, capture: dict[str, Any]) -> None:
+    try:
+        config = PipelineConfig.from_env(WORK_DIR / job_id)
+        artifacts = await process_multiview_capture(
+            input_dir=input_dir,
+            capture=capture,
+            job_id=job_id,
+            update_job=update_job,
+            config=config,
+        )
+        update_job(
+            job_id,
+            status="done",
+            progress=100,
+            message="Modele 3D pret",
+            artifacts={key: str(value) for key, value in artifacts.items()},
+        )
     except Exception as exc:
         update_job(job_id, status="error", progress=0, message=str(exc))
-    finally:
-        image_path.unlink(missing_ok=True)
 
 
 @app.post("/scan/start")
-async def start_scan(image: UploadFile, background_tasks: BackgroundTasks):
-    """Receive a JPEG frame and start 3D reconstruction in background."""
+async def start_scan(
+    background_tasks: BackgroundTasks,
+    images: list[UploadFile] = File(...),
+    capture: Optional[str] = Form(default=None),
+):
+    if len(images) < int(os.getenv("ARVIEW_MIN_FRAMES", "24")):
+        raise HTTPException(
+            status_code=400,
+            detail=f"Pas assez de frames: {len(images)}. Capture au moins 24 images nettes.",
+        )
+
     job_id = str(uuid.uuid4())
-    ext = ".jpg" if "jpeg" in (image.content_type or "") else ".png"
-    image_path = WORK_DIR / f"{job_id}_input{ext}"
-    image_path.write_bytes(await image.read())
+    capture_data = parse_capture(capture)
+    input_dir = await save_frames(job_id, images)
 
-    update_job(job_id, status="queued", progress=0, message="En file d'attente...", glb_path=None)
-    background_tasks.add_task(run_pipeline, job_id, image_path)
-
-    return {"job_id": job_id, "mode": SCAN_MODE}
+    update_job(
+        job_id,
+        status="queued",
+        progress=0,
+        message=f"{len(images)} images recues",
+        artifacts={},
+    )
+    background_tasks.add_task(run_pipeline, job_id, input_dir, capture_data)
+    return {"job_id": job_id, "mode": "local-gpu-photogrammetry", "frames_received": len(images)}
 
 
 @app.get("/scan/status/{job_id}")
@@ -77,25 +132,67 @@ async def get_status(job_id: str):
 
 
 @app.get("/scan/result/{job_id}")
-async def get_result(job_id: str):
+async def get_default_result(job_id: str):
+    return await get_result(job_id, "glb")
+
+
+@app.get("/scan/result/{job_id}/{artifact}")
+async def get_result(job_id: str, artifact: str):
     job = jobs.get(job_id)
     if not job or job.get("status") != "done":
-        raise HTTPException(status_code=404, detail="Résultat non disponible")
-    glb_path = Path(job["glb_path"])
-    if not glb_path.exists():
-        raise HTTPException(status_code=410, detail="Fichier expiré, relancer un scan")
-    return FileResponse(path=glb_path, media_type="model/gltf-binary", filename="model.glb")
+        raise HTTPException(status_code=404, detail="Resultat non disponible")
+
+    artifacts: ArtifactMap = job.get("artifacts") or {}
+    path_str = artifacts.get(artifact)
+    if not path_str:
+        raise HTTPException(status_code=404, detail=f"Artifact non disponible: {artifact}")
+
+    path = Path(path_str)
+    if not path.exists():
+        raise HTTPException(status_code=410, detail="Fichier expire, relancer un scan")
+
+    media_types = {
+        "glb": "model/gltf-binary",
+        "splat": "application/octet-stream",
+        "pointcloud": "application/octet-stream",
+        "mesh": "application/octet-stream",
+        "log": "text/plain",
+    }
+    return FileResponse(path=path, media_type=media_types.get(artifact, "application/octet-stream"), filename=path.name)
 
 
 @app.get("/health")
 async def health():
-    """Check GPU availability and current mode."""
-    gpu_name = None
     cuda = False
+    gpu_name = None
+    torch_version = None
     try:
         import torch
+
+        torch_version = torch.__version__
         cuda = torch.cuda.is_available()
         gpu_name = torch.cuda.get_device_name(0) if cuda else None
-    except ImportError:
+    except Exception:
         pass
-    return {"status": "ok", "mode": SCAN_MODE, "cuda": cuda, "gpu": gpu_name}
+
+    tools = {
+        "colmap": bool(which("colmap")),
+        "ns-process-data": bool(which("ns-process-data")),
+        "ns-train": bool(which("ns-train")),
+        "ns-export": bool(which("ns-export")),
+        "InterfaceCOLMAP": bool(which("InterfaceCOLMAP")),
+        "DensifyPointCloud": bool(which("DensifyPointCloud")),
+        "ReconstructMesh": bool(which("ReconstructMesh")),
+        "TextureMesh": bool(which("TextureMesh")),
+        "blender": bool(which("blender")),
+    }
+
+    return {
+        "status": "ok",
+        "mode": "local-gpu-photogrammetry",
+        "cuda": cuda,
+        "gpu": gpu_name,
+        "torch": torch_version,
+        "work_dir": str(WORK_DIR),
+        "tools": tools,
+    }

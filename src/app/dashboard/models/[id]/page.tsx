@@ -31,15 +31,19 @@ export default async function ModelDetailPage({
 
   const fileUrl = supabase.storage.from("models").getPublicUrl(model.file_path)
     .data.publicUrl;
+  const splatUrl = model.splat_path
+    ? supabase.storage.from("models").getPublicUrl(model.splat_path).data.publicUrl
+    : null;
 
   const baseUrl =
-    process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+    process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3050";
   const publicUrl = `${baseUrl}/m/${model.slug}`;
 
   return (
     <ModelDetailClient
       model={model}
       modelUrl={fileUrl}
+      splatUrl={splatUrl}
       publicUrl={publicUrl}
       stats={{
         views: formatNumber(stats.views),

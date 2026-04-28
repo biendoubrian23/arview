@@ -19,8 +19,8 @@ export default async function LinksPage() {
 
   // Récup stats
   const ids = (models ?? []).map((m) => m.id);
-  let viewCounts: Record<string, number> = {};
-  let arCounts: Record<string, number> = {};
+  const viewCounts: Record<string, number> = {};
+  const arCounts: Record<string, number> = {};
   if (ids.length) {
     const { data: ev } = await supabase
       .from("events")
@@ -34,7 +34,7 @@ export default async function LinksPage() {
     }
   }
 
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3050";
 
   const rows =
     models?.map((m) => ({

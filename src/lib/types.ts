@@ -27,6 +27,7 @@ export interface ModelRow {
   status: ModelStatus;
   file_path: string;
   file_size: number | null;
+  splat_path: string | null;
   thumbnail_path: string | null;
   source_video_path: string | null;
   created_at: string;

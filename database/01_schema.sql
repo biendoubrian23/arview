@@ -35,11 +35,15 @@ create table if not exists public.models (
   status text not null default 'ready' check (status in ('processing','ready','archived','failed')),
   file_path text not null,                   -- chemin dans le bucket Supabase Storage
   file_size bigint,
+  splat_path text,                           -- Gaussian Splat .ply optionnel
   thumbnail_path text,
   source_video_path text,                    -- vidéo de scan brute
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+alter table if exists public.models
+  add column if not exists splat_path text;
 
 create index if not exists idx_models_user on public.models(user_id);
 create index if not exists idx_models_slug on public.models(slug);

@@ -22,11 +22,13 @@ import { deleteModel, updateModel } from "@/app/dashboard/actions";
 export default function ModelDetailClient({
   model,
   modelUrl,
+  splatUrl,
   publicUrl,
   stats,
 }: {
   model: ModelRow;
   modelUrl: string;
+  splatUrl: string | null;
   publicUrl: string;
   stats: { views: string; ar: string; avg: string; rate: string };
 }) {
@@ -172,6 +174,11 @@ export default function ModelDetailClient({
                 <button type="button" onClick={downloadSvg} className="btn-ghost text-sm">
                   <Download className="h-4 w-4" /> Télécharger SVG
                 </button>
+                {splatUrl && (
+                  <a href={splatUrl} download className="btn-ghost text-sm">
+                    <Download className="h-4 w-4" /> Gaussian Splat PLY
+                  </a>
+                )}
               </div>
             </div>
           </div>

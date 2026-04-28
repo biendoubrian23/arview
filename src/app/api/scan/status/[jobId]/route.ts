@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServer } from "@/lib/supabase/server";
 
 const SCAN_MODE       = process.env.NEXT_PUBLIC_SCAN_MODE ?? "local";
-const BACKEND         = process.env.PYTHON_BACKEND_URL ?? "http://localhost:8000";
+const BACKEND         = process.env.PYTHON_BACKEND_URL ?? "http://localhost:8050";
 const REPLICATE_TOKEN = process.env.REPLICATE_API_TOKEN ?? "";
 
 function replicateToJob(data: Record<string, unknown>) {

@@ -1,0 +1,53 @@
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.gpu
+      args:
+        CUDA_ARCHITECTURES: "120"
+        PYTORCH_INDEX_URL: "https://download.pytorch.org/whl/cu130"
+        BUILD_OPENMVS: "0"
+    image: arview-backend-gpu:local
+    ports:
+      - "8050:8000"
+    environment:
+      ARVIEW_WORK_DIR: /workspace/jobs
+      ARVIEW_MIN_FRAMES: "24"
+      ARVIEW_MAX_FRAMES: "160"
+      ARVIEW_IMAGE_MAX_SIZE: "1800"
+      ARVIEW_SPLAT_METHOD: splatfacto-big
+      ARVIEW_ENABLE_SPLAT: "1"
+      ARVIEW_ENABLE_MESH: "1"
+      ARVIEW_ENABLE_OPENMVS: "0"
+    gpus: all
+    volumes:
+      - arview-jobs:/workspace/jobs
+    restart: unless-stopped
+
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+      args:
+        NEXT_PUBLIC_SCAN_MODE: local
+        NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-http://localhost:3050}
+        NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL}
+        NEXT_PUBLIC_SUPABASE_ANON_KEY: ${NEXT_PUBLIC_SUPABASE_ANON_KEY}
+    image: arview-frontend:local
+    ports:
+      - "3050:3000"
+    environment:
+      NEXT_PUBLIC_SCAN_MODE: local
+      PYTHON_BACKEND_URL: http://backend:8000
+      NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-http://localhost:3050}
+      NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL}
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${NEXT_PUBLIC_SUPABASE_ANON_KEY}
+      SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY}
+      HOSTNAME: 0.0.0.0
+      PORT: "3000"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+volumes:
+  arview-jobs:

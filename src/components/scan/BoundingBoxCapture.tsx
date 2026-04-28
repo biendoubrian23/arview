@@ -1,230 +1,181 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Camera, Square, RotateCcw, CheckCircle, Loader2 } from "lucide-react";
+import { CheckCircle, RotateCcw, Video } from "lucide-react";
 
-// Box dimensions stored as percentages (0–100) of container size
-type Box = { x: number; y: number; w: number; h: number };
-
-type DragState = {
-  handle: string;
-  startPctX: number;
-  startPctY: number;
-  startBox: Box;
+export type CaptureMetadata = {
+  box: Box;
+  viewport: { width: number; height: number };
+  image: { width: number; height: number };
+  framesTarget: number;
 };
 
-type Phase = "live" | "recording" | "extracting" | "preview" | "error";
+type Box = { x: number; y: number; w: number; h: number };
+type DragState = { handle: string; startPctX: number; startPctY: number; startBox: Box };
+type Phase = "aim" | "ready" | "recording" | "preview" | "error";
 
-const MIN_BOX_PCT = 15; // minimum box size in %
+const MIN_BOX_PCT = 14;
+const MAX_FRAMES = 120;
+const MIN_FRAMES = 36;
+const CAPTURE_MS = 250;
 
 const HANDLES = [
-  { id: "nw", left: "0%",   top: "0%"   },
-  { id: "n",  left: "50%",  top: "0%"   },
-  { id: "ne", left: "100%", top: "0%"   },
-  { id: "e",  left: "100%", top: "50%"  },
+  { id: "nw", left: "0%", top: "0%" },
+  { id: "ne", left: "100%", top: "0%" },
   { id: "se", left: "100%", top: "100%" },
-  { id: "s",  left: "50%",  top: "100%" },
-  { id: "sw", left: "0%",   top: "100%" },
-  { id: "w",  left: "0%",   top: "50%"  },
+  { id: "sw", left: "0%", top: "100%" },
 ] as const;
 
 const CURSOR: Record<string, string> = {
-  nw: "nw-resize", n: "n-resize", ne: "ne-resize",
-  e: "e-resize", se: "se-resize", s: "s-resize",
-  sw: "sw-resize", w: "w-resize", move: "move",
+  nw: "nw-resize",
+  ne: "ne-resize",
+  se: "se-resize",
+  sw: "sw-resize",
+  move: "move",
 };
 
-function clamp(v: number, lo: number, hi: number) {
-  return Math.max(lo, Math.min(hi, v));
+function clamp(value: number, min: number, max: number) {
+  return Math.max(min, Math.min(max, value));
 }
 
-function applyDrag(handle: string, sb: Box, dx: number, dy: number): Box {
-  let { x, y, w, h } = sb;
-  switch (handle) {
-    case "move":
-      return { x: clamp(x + dx, 0, 100 - w), y: clamp(y + dy, 0, 100 - h), w, h };
-    case "nw": {
-      const nw = Math.max(MIN_BOX_PCT, w - dx);
-      const nh = Math.max(MIN_BOX_PCT, h - dy);
-      return { x: x + w - nw, y: y + h - nh, w: nw, h: nh };
-    }
-    case "ne": {
-      const nh = Math.max(MIN_BOX_PCT, h - dy);
-      return { x, y: y + h - nh, w: clamp(w + dx, MIN_BOX_PCT, 100 - x), h: nh };
-    }
-    case "se":
-      return { x, y, w: clamp(w + dx, MIN_BOX_PCT, 100 - x), h: clamp(h + dy, MIN_BOX_PCT, 100 - y) };
-    case "sw": {
-      const nw = Math.max(MIN_BOX_PCT, w - dx);
-      return { x: x + w - nw, y, w: nw, h: clamp(h + dy, MIN_BOX_PCT, 100 - y) };
-    }
-    case "n": {
-      const nh = Math.max(MIN_BOX_PCT, h - dy);
-      return { x, y: y + h - nh, w, h: nh };
-    }
-    case "s":
-      return { x, y, w, h: clamp(h + dy, MIN_BOX_PCT, 100 - y) };
-    case "e":
-      return { x, y, w: clamp(w + dx, MIN_BOX_PCT, 100 - x), h };
-    case "w": {
-      const nw = Math.max(MIN_BOX_PCT, w - dx);
-      return { x: x + w - nw, y, w: nw, h };
-    }
-    default:
-      return sb;
+function applyDrag(handle: string, box: Box, dx: number, dy: number): Box {
+  let { x, y, w, h } = box;
+  if (handle === "move") {
+    return { x: clamp(x + dx, 0, 100 - w), y: clamp(y + dy, 0, 100 - h), w, h };
   }
+  if (handle.includes("w")) {
+    const nextW = clamp(w - dx, MIN_BOX_PCT, x + w);
+    x = x + w - nextW;
+    w = nextW;
+  }
+  if (handle.includes("e")) w = clamp(w + dx, MIN_BOX_PCT, 100 - x);
+  if (handle.includes("n")) {
+    const nextH = clamp(h - dy, MIN_BOX_PCT, y + h);
+    y = y + h - nextH;
+    h = nextH;
+  }
+  if (handle.includes("s")) h = clamp(h + dy, MIN_BOX_PCT, 100 - y);
+  return { x, y, w, h };
+}
+
+function BoxOverlay({ box, dim = false }: { box: Box; dim?: boolean }) {
+  const depth = Math.max(7, box.h * 0.16);
+  const rear = {
+    x: clamp(box.x + depth * 0.55, 0, 100),
+    y: clamp(box.y - depth * 0.42, 0, 100),
+    w: box.w,
+    h: box.h,
+  };
+
+  return (
+    <svg className="absolute inset-0 h-full w-full pointer-events-none box3d-svg" viewBox="0 0 100 100" preserveAspectRatio="none">
+      <polygon
+        points={`${rear.x},${rear.y} ${rear.x + rear.w},${rear.y} ${rear.x + rear.w},${rear.y + rear.h} ${rear.x},${rear.y + rear.h}`}
+        fill="rgba(255,255,255,0.02)"
+        stroke="rgba(255,255,255,0.36)"
+        strokeWidth="0.18"
+        strokeDasharray="1 1"
+      />
+      <line x1={box.x} y1={box.y} x2={rear.x} y2={rear.y} stroke="rgba(255,255,255,0.82)" strokeWidth="0.28" />
+      <line x1={box.x + box.w} y1={box.y} x2={rear.x + rear.w} y2={rear.y} stroke="rgba(255,255,255,0.82)" strokeWidth="0.28" />
+      <line x1={box.x} y1={box.y + box.h} x2={rear.x} y2={rear.y + rear.h} stroke="rgba(255,255,255,0.82)" strokeWidth="0.28" />
+      <line x1={box.x + box.w} y1={box.y + box.h} x2={rear.x + rear.w} y2={rear.y + rear.h} stroke="rgba(255,255,255,0.82)" strokeWidth="0.28" />
+      <rect
+        x={box.x}
+        y={box.y}
+        width={box.w}
+        height={box.h}
+        fill={dim ? "rgba(255,255,255,0.015)" : "rgba(255,255,255,0.04)"}
+        stroke="rgba(255,255,255,0.96)"
+        strokeWidth="0.35"
+      />
+    </svg>
+  );
 }
 
 export default function BoundingBoxCapture({
   onComplete,
 }: {
-  onComplete: (videoBlob: Blob, frameBlob: Blob) => void;
+  onComplete: (frames: Blob[], metadata: CaptureMetadata) => void;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const liveVideoRef = useRef<HTMLVideoElement>(null);
-  const previewVideoRef = useRef<HTMLVideoElement>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
-  const recorderRef = useRef<MediaRecorder | null>(null);
-  const chunksRef = useRef<BlobPart[]>([]);
-
-  const [phase, setPhase] = useState<Phase>("live");
-  const [elapsed, setElapsed] = useState(0);
-  const [errorMsg, setErrorMsg] = useState("");
-  const [videoBlobUrl, setVideoBlobUrl] = useState<string | null>(null);
-  const [capturedVideo, setCapturedVideo] = useState<Blob | null>(null);
-  const [box, setBox] = useState<Box>({ x: 15, y: 15, w: 70, h: 70 });
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const framesRef = useRef<Blob[]>([]);
   const dragRef = useRef<DragState | null>(null);
+  const phaseRef = useRef<Phase>("aim");
 
-  // ── Camera init ────────────────────────────────────────────────────────────
+  const [phase, setPhase] = useState<Phase>("aim");
+  const [box, setBox] = useState<Box>({ x: 11, y: 25, w: 78, h: 48 });
+  const [frameCount, setFrameCount] = useState(0);
+  const [viewport, setViewport] = useState({ width: 0, height: 0 });
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [errorMsg, setErrorMsg] = useState("");
+
   useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: {
-            facingMode: { ideal: "environment" },
-            width: { ideal: 1280 },
-            height: { ideal: 720 },
-          },
-          audio: false,
-        });
-        if (cancelled) { stream.getTracks().forEach(t => t.stop()); return; }
-        streamRef.current = stream;
-        if (liveVideoRef.current) {
-          liveVideoRef.current.srcObject = stream;
-          await liveVideoRef.current.play().catch(() => {});
+    phaseRef.current = phase;
+  }, [phase]);
+
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const observer = new ResizeObserver(([entry]) => {
+      setViewport({ width: entry.contentRect.width, height: entry.contentRect.height });
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    navigator.mediaDevices
+      .getUserMedia({
+        video: {
+          facingMode: { ideal: "environment" },
+          width: { ideal: 1920 },
+          height: { ideal: 1080 },
+        },
+        audio: false,
+      })
+      .then((stream) => {
+        if (!active) {
+          stream.getTracks().forEach((track) => track.stop());
+          return;
         }
-      } catch {
-        setPhase("error");
-        setErrorMsg("Impossible d'accéder à la caméra. Vérifie les permissions dans ton navigateur.");
-      }
-    })();
+        streamRef.current = stream;
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+          videoRef.current.play().catch(() => {});
+        }
+      })
+      .catch((error) => {
+        if (active) {
+          setPhase("error");
+          setErrorMsg(`Camera inaccessible: ${error.message}`);
+        }
+      });
+
     return () => {
-      cancelled = true;
-      streamRef.current?.getTracks().forEach(t => t.stop());
+      active = false;
+      streamRef.current?.getTracks().forEach((track) => track.stop());
+      if (timerRef.current) clearInterval(timerRef.current);
     };
   }, []);
 
-  // ── Timer ─────────────────────────────────────────────────────────────────
   useEffect(() => {
-    if (phase !== "recording") return;
-    const id = setInterval(() => setElapsed(s => s + 1), 1000);
-    return () => clearInterval(id);
-  }, [phase]);
-
-  // ── Recording ─────────────────────────────────────────────────────────────
-  function startRecording() {
-    if (!streamRef.current) return;
-    chunksRef.current = [];
-    setElapsed(0);
-    const mime = MediaRecorder.isTypeSupported("video/mp4") ? "video/mp4" : "video/webm";
-    const rec = new MediaRecorder(streamRef.current, { mimeType: mime });
-    rec.ondataavailable = e => { if (e.data.size > 0) chunksRef.current.push(e.data); };
-    rec.onstop = () => {
-      const blob = new Blob(chunksRef.current, { type: mime });
-      setCapturedVideo(blob);
-      const url = URL.createObjectURL(blob);
-      setVideoBlobUrl(url);
-      setPhase("extracting");
-      extractFrame(blob, url);
+    return () => {
+      if (previewUrl) URL.revokeObjectURL(previewUrl);
     };
-    rec.start();
-    recorderRef.current = rec;
-    setPhase("recording");
-  }
+  }, [previewUrl]);
 
-  function stopRecording() {
-    recorderRef.current?.stop();
-  }
-
-  // ── Frame extraction ──────────────────────────────────────────────────────
-  function extractFrame(videoBlob: Blob, blobUrl: string) {
-    const vid = document.createElement("video");
-    vid.src = blobUrl;
-    vid.preload = "metadata";
-    vid.muted = true;
-    vid.playsInline = true;
-
-    vid.onloadedmetadata = () => {
-      vid.currentTime = vid.duration * 0.45; // ~middle of capture
-    };
-
-    vid.onseeked = () => {
-      const canvas = document.createElement("canvas");
-      canvas.width = vid.videoWidth;
-      canvas.height = vid.videoHeight;
-      canvas.getContext("2d")!.drawImage(vid, 0, 0);
-      canvas.toBlob(
-        frameBlob => {
-          if (frameBlob) {
-            setPhase("preview");
-            // Keep the preview video to display
-            if (previewVideoRef.current) {
-              previewVideoRef.current.src = blobUrl;
-            }
-            // Pass both blobs upward when user confirms
-            (vid as HTMLVideoElement & { _frameBlob?: Blob })._frameBlob = frameBlob;
-            // Store on window temporarily
-            (window as unknown as Record<string, unknown>).__scanFrameBlob = frameBlob;
-          } else {
-            setPhase("error");
-            setErrorMsg("Extraction du frame échouée. Réessaie.");
-          }
-        },
-        "image/jpeg",
-        0.92,
-      );
-    };
-
-    vid.onerror = () => {
-      setPhase("error");
-      setErrorMsg("Impossible de lire la vidéo enregistrée.");
-    };
-  }
-
-  function confirmFrame() {
-    const frameBlob = (window as unknown as Record<string, unknown>).__scanFrameBlob as Blob | undefined;
-    if (!capturedVideo || !frameBlob) return;
-    delete (window as unknown as Record<string, unknown>).__scanFrameBlob;
-    onComplete(capturedVideo, frameBlob);
-  }
-
-  function reset() {
-    if (videoBlobUrl) URL.revokeObjectURL(videoBlobUrl);
-    setVideoBlobUrl(null);
-    setCapturedVideo(null);
-    setElapsed(0);
-    setPhase("live");
-  }
-
-  // ── Drag / Resize ─────────────────────────────────────────────────────────
   const getPct = useCallback((clientX: number, clientY: number) => {
-    const el = containerRef.current;
-    if (!el) return { x: 0, y: 0 };
-    const r = el.getBoundingClientRect();
+    const rect = containerRef.current?.getBoundingClientRect();
+    if (!rect) return { x: 0, y: 0 };
     return {
-      x: ((clientX - r.left) / r.width) * 100,
-      y: ((clientY - r.top) / r.height) * 100,
+      x: ((clientX - rect.left) / rect.width) * 100,
+      y: ((clientY - rect.top) / rect.height) * 100,
     };
   }, []);
 
@@ -237,18 +188,16 @@ export default function BoundingBoxCapture({
   );
 
   useEffect(() => {
-    function onMove(e: MouseEvent | TouchEvent) {
-      const d = dragRef.current;
-      if (!d) return;
-      const { clientX, clientY } =
-        "touches" in e ? e.touches[0] : (e as MouseEvent);
-      const pct = getPct(clientX, clientY);
-      const dx = pct.x - d.startPctX;
-      const dy = pct.y - d.startPctY;
-      setBox(applyDrag(d.handle, d.startBox, dx, dy));
+    function onMove(event: MouseEvent | TouchEvent) {
+      const drag = dragRef.current;
+      if (!drag) return;
+      const point = "touches" in event ? event.touches[0] : event;
+      const pct = getPct(point.clientX, point.clientY);
+      setBox(applyDrag(drag.handle, drag.startBox, pct.x - drag.startPctX, pct.y - drag.startPctY));
     }
-    function onEnd() { dragRef.current = null; }
-
+    function onEnd() {
+      dragRef.current = null;
+    }
     window.addEventListener("mousemove", onMove);
     window.addEventListener("touchmove", onMove, { passive: false });
     window.addEventListener("mouseup", onEnd);
@@ -261,181 +210,205 @@ export default function BoundingBoxCapture({
     };
   }, [getPct]);
 
-  // ── Render ────────────────────────────────────────────────────────────────
-  const showBoundingBox = phase === "live" || phase === "recording";
+  function captureFrame() {
+    const video = videoRef.current;
+    const canvas = canvasRef.current;
+    if (!video || !canvas || video.readyState < 2) return;
+
+    canvas.width = video.videoWidth || 1920;
+    canvas.height = video.videoHeight || 1080;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    canvas.toBlob(
+      (blob) => {
+        if (!blob || phaseRef.current !== "recording") return;
+        framesRef.current.push(blob);
+        setFrameCount(framesRef.current.length);
+        if (framesRef.current.length >= MAX_FRAMES) finishRecording();
+      },
+      "image/jpeg",
+      0.92,
+    );
+  }
+
+  function startRecording() {
+    framesRef.current = [];
+    setFrameCount(0);
+    setPhase("recording");
+    captureFrame();
+    timerRef.current = setInterval(captureFrame, CAPTURE_MS);
+  }
+
+  function finishRecording() {
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
+    const last = framesRef.current.at(-1);
+    if (last) {
+      if (previewUrl) URL.revokeObjectURL(previewUrl);
+      setPreviewUrl(URL.createObjectURL(last));
+    }
+    setPhase("preview");
+  }
+
+  function metadata(): CaptureMetadata {
+    const video = videoRef.current;
+    return {
+      box,
+      viewport,
+      image: {
+        width: video?.videoWidth || 0,
+        height: video?.videoHeight || 0,
+      },
+      framesTarget: MAX_FRAMES,
+    };
+  }
+
+  function confirm() {
+    onComplete([...framesRef.current], metadata());
+  }
+
+  function reset() {
+    if (timerRef.current) clearInterval(timerRef.current);
+    timerRef.current = null;
+    framesRef.current = [];
+    setFrameCount(0);
+    if (previewUrl) URL.revokeObjectURL(previewUrl);
+    setPreviewUrl(null);
+    setPhase("aim");
+  }
+
+  const progressPct = Math.round((frameCount / MAX_FRAMES) * 100);
+
+  if (phase === "error") {
+    return <div className="rounded-lg border border-red-500/25 bg-red-500/10 p-4 text-sm text-red-500">{errorMsg}</div>;
+  }
 
   return (
     <div className="space-y-4">
-      <div
-        ref={containerRef}
-        className="relative aspect-[3/4] sm:aspect-video rounded-2xl overflow-hidden bg-black select-none touch-none"
-      >
-        {/* Live camera */}
-        <video
-          ref={liveVideoRef}
-          className={`absolute inset-0 w-full h-full object-cover ${phase === "preview" || phase === "extracting" ? "hidden" : ""}`}
-          playsInline
-          muted
-        />
+      <div ref={containerRef} className="relative aspect-[9/16] max-h-[760px] overflow-hidden rounded-lg bg-black select-none touch-none">
+        <video ref={videoRef} className={`absolute inset-0 h-full w-full object-cover ${phase === "preview" ? "opacity-40" : ""}`} playsInline muted />
+        <canvas ref={canvasRef} className="hidden" />
 
-        {/* Preview video */}
-        {(phase === "preview" || phase === "extracting") && (
-          <video
-            ref={previewVideoRef}
-            className="absolute inset-0 w-full h-full object-cover"
-            playsInline
-            controls={phase === "preview"}
-            autoPlay={phase === "extracting"}
-            muted
-            loop
-          />
-        )}
-
-        {/* Dark vignette outside bounding box */}
-        {showBoundingBox && (
-          <svg
-            className="absolute inset-0 w-full h-full pointer-events-none"
-            xmlns="http://www.w3.org/2000/svg"
-          >
+        {phase === "aim" && (
+          <svg className="absolute inset-0 h-full w-full pointer-events-none">
             <defs>
-              <mask id="scanar-box-mask">
+              <mask id="capture-mask">
                 <rect width="100%" height="100%" fill="white" />
-                <rect
-                  x={`${box.x}%`}
-                  y={`${box.y}%`}
-                  width={`${box.w}%`}
-                  height={`${box.h}%`}
-                  fill="black"
-                />
+                <rect x={`${box.x}%`} y={`${box.y}%`} width={`${box.w}%`} height={`${box.h}%`} fill="black" />
               </mask>
             </defs>
-            <rect width="100%" height="100%" fill="rgba(0,0,0,0.5)" mask="url(#scanar-box-mask)" />
+            <rect width="100%" height="100%" fill="rgba(0,0,0,0.38)" mask="url(#capture-mask)" />
           </svg>
         )}
 
-        {/* Bounding box widget */}
-        {showBoundingBox && (
-          <div
-            className="absolute"
-            style={{ left: `${box.x}%`, top: `${box.y}%`, width: `${box.w}%`, height: `${box.h}%` }}
-          >
-            {/* Glowing border + move handle */}
-            <div
-              className="absolute inset-0 rounded-sm"
-              style={{
-                border: "2px solid rgba(255,255,255,0.92)",
-                boxShadow:
-                  "0 0 0 1px rgba(0,180,255,0.4), 0 0 16px rgba(255,255,255,0.3), inset 0 0 20px rgba(255,255,255,0.04)",
-                cursor: CURSOR.move,
-              }}
-              onMouseDown={e => { e.preventDefault(); startDrag("move", e.clientX, e.clientY); }}
-              onTouchStart={e => { e.preventDefault(); startDrag("move", e.touches[0].clientX, e.touches[0].clientY); }}
-            />
+        {(phase === "ready" || phase === "recording") && <BoxOverlay box={box} dim={phase === "recording"} />}
 
-            {/* Resize handles */}
-            {HANDLES.map(h => (
+        {(phase === "aim" || phase === "ready") && (
+          <div className="absolute" style={{ left: `${box.x}%`, top: `${box.y}%`, width: `${box.w}%`, height: `${box.h}%` }}>
+            <div
+              className="bbox-border"
+              style={{ cursor: CURSOR.move }}
+              onMouseDown={(event) => {
+                event.preventDefault();
+                startDrag("move", event.clientX, event.clientY);
+              }}
+              onTouchStart={(event) => {
+                event.preventDefault();
+                startDrag("move", event.touches[0].clientX, event.touches[0].clientY);
+              }}
+            />
+            {HANDLES.map((handle) => (
               <div
-                key={h.id}
-                className="absolute z-10"
-                style={{
-                  left: h.left,
-                  top: h.top,
-                  width: 18,
-                  height: 18,
-                  transform: "translate(-50%, -50%)",
-                  cursor: CURSOR[h.id],
-                  touchAction: "none",
+                key={handle.id}
+                className="bbox-handle"
+                style={{ left: handle.left, top: handle.top, cursor: CURSOR[handle.id] }}
+                onMouseDown={(event) => {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  startDrag(handle.id, event.clientX, event.clientY);
                 }}
-                onMouseDown={e => { e.preventDefault(); e.stopPropagation(); startDrag(h.id, e.clientX, e.clientY); }}
-                onTouchStart={e => { e.preventDefault(); e.stopPropagation(); startDrag(h.id, e.touches[0].clientX, e.touches[0].clientY); }}
+                onTouchStart={(event) => {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  startDrag(handle.id, event.touches[0].clientX, event.touches[0].clientY);
+                }}
               >
-                <div
-                  className="w-full h-full rounded-full"
-                  style={{
-                    background: "white",
-                    boxShadow: "0 0 10px rgba(0,180,255,0.9), 0 0 3px white",
-                  }}
-                />
+                <div className="bbox-handle-dot" />
               </div>
             ))}
           </div>
         )}
 
-        {/* Recording indicator */}
-        {phase === "recording" && (
-          <div className="absolute top-4 left-4 z-20 flex items-center gap-2 bg-red-500/90 backdrop-blur-sm text-white text-xs px-3 py-1.5 rounded-full">
-            <span className="h-2 w-2 rounded-full bg-white animate-pulse" />
-            REC {Math.floor(elapsed / 60)}:{String(elapsed % 60).padStart(2, "0")}
-          </div>
-        )}
-
-        {/* Instruction banner */}
-        {phase === "live" && (
-          <div className="absolute top-0 inset-x-0 z-10 bg-gradient-to-b from-black/65 to-transparent p-4 pointer-events-none">
-            <p className="text-white text-sm font-semibold">AR Object Capture</p>
-            <p className="text-white/80 text-xs mt-0.5">
-              Glisse les coins pour cadrer ton objet. Tourne autour pendant 20-40s.
-            </p>
-          </div>
-        )}
-
-        {/* Extracting spinner */}
-        {phase === "extracting" && (
-          <div className="absolute inset-0 z-30 flex flex-col items-center justify-center bg-black/60 backdrop-blur-sm gap-3">
-            <Loader2 className="h-8 w-8 text-white animate-spin" />
-            <p className="text-white text-sm">Extraction du frame…</p>
-          </div>
-        )}
-
-        {/* Preview checkmark */}
-        {phase === "preview" && (
-          <div className="absolute top-4 left-4 z-20 flex items-center gap-2 bg-green-500/90 backdrop-blur-sm text-white text-xs px-3 py-1.5 rounded-full">
-            <CheckCircle className="h-3.5 w-3.5" /> Capture prête
-          </div>
-        )}
-
-        {/* Error overlay */}
-        {phase === "error" && (
-          <div className="absolute inset-0 z-30 flex items-center justify-center bg-black/70 p-6">
-            <p className="text-white text-sm text-center">{errorMsg}</p>
-          </div>
-        )}
-      </div>
-
-      {/* Controls */}
-      <div className="flex items-center gap-2 justify-center flex-wrap">
-        {phase === "live" && (
-          <button type="button" onClick={startRecording} className="btn-primary">
-            <Camera className="h-4 w-4" /> Démarrer la capture
+        <div className="absolute left-4 right-4 top-4 flex items-center justify-between">
+          <button type="button" className="rounded-lg bg-black/45 px-4 py-2 text-sm font-semibold text-white backdrop-blur" onClick={reset}>
+            Reset
           </button>
-        )}
+          {phase !== "aim" && (
+            <button type="button" className="rounded-lg bg-black/45 px-4 py-2 text-sm font-semibold text-white backdrop-blur" onClick={() => setPhase("aim")}>
+              Next
+            </button>
+          )}
+        </div>
+
+        <div className="absolute left-6 right-6 top-[18%] text-white pointer-events-none">
+          <p className="text-2xl font-bold drop-shadow">ARView Object Capture</p>
+          <p className="mt-3 max-w-md text-sm font-semibold leading-relaxed text-white/88 drop-shadow">
+            Move around to ensure that the whole object is inside the box. Drag handles to manually resize.
+          </p>
+        </div>
+
         {phase === "recording" && (
-          <button type="button" onClick={stopRecording} className="btn-ghost">
-            <Square className="h-4 w-4" />
-            Arrêter ({Math.floor(elapsed / 60)}:{String(elapsed % 60).padStart(2, "0")})
-          </button>
+          <div className="absolute inset-x-0 bottom-7 flex flex-col items-center gap-4">
+            <div className="relative h-28 w-28">
+              <div className="capture-ring absolute inset-0 rounded-full" style={{ "--capture-pct": `${progressPct * 3.6}deg` } as React.CSSProperties} />
+              <div className="absolute inset-8 rounded-full bg-white/18 backdrop-blur" />
+            </div>
+            <div className="rounded-full bg-black/50 px-4 py-2 text-xs font-semibold text-white backdrop-blur">{frameCount} / {MAX_FRAMES} photos</div>
+          </div>
         )}
-        {phase === "preview" && (
+
+        {phase === "preview" && previewUrl && (
           <>
-            <button type="button" onClick={confirmFrame} className="btn-primary">
-              <CheckCircle className="h-4 w-4" /> Utiliser cette capture
-            </button>
-            <button type="button" onClick={reset} className="btn-ghost">
-              <RotateCcw className="h-4 w-4" /> Recommencer
-            </button>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={previewUrl} alt="Derniere image capturee" className="absolute inset-0 h-full w-full object-cover" />
+            <div className="absolute left-4 top-4 inline-flex items-center gap-2 rounded-full bg-emerald-500 px-4 py-2 text-sm font-semibold text-white">
+              <CheckCircle className="h-4 w-4" />
+              {frameCount} photos capturees
+            </div>
           </>
         )}
-        {phase === "live" && (
+
+        {phase !== "recording" && phase !== "preview" && (
           <button
             type="button"
-            onClick={() => setBox({ x: 15, y: 15, w: 70, h: 70 })}
-            className="btn-ghost"
-            title="Réinitialiser le cadre"
+            className="absolute bottom-14 left-1/2 inline-flex -translate-x-1/2 items-center gap-2 rounded-full bg-[#147DFF] px-7 py-4 text-sm font-bold text-white shadow-lg"
+            onClick={() => (phase === "aim" ? setPhase("ready") : startRecording())}
           >
-            <RotateCcw className="h-4 w-4" />
+            <Video className="h-4 w-4" />
+            {phase === "aim" ? "Start Capture" : "Record"}
           </button>
         )}
       </div>
+
+      {phase === "recording" && frameCount >= MIN_FRAMES && (
+        <button type="button" className="btn-primary w-full" onClick={finishRecording}>
+          Terminer avec {frameCount} photos
+        </button>
+      )}
+
+      {phase === "preview" && (
+        <div className="flex gap-2">
+          <button type="button" className="btn-ghost flex-1" onClick={reset}>
+            <RotateCcw className="h-4 w-4" /> Recommencer
+          </button>
+          <button type="button" className="btn-primary flex-1" onClick={confirm}>
+            Generer le modele 3D
+          </button>
+        </div>
+      )}
     </div>
   );
 }

@@ -6,7 +6,11 @@
     "dev": "cross-env NODE_TLS_REJECT_UNAUTHORIZED=0 next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "docker:up": "docker compose up --build",
+    "docker:backend": "docker compose up --build backend",
+    "docker:prod": "docker compose -f docker-compose.prod.yml up --build",
+    "docker:tunnel": "docker compose -f docker-compose.prod.yml -f docker-compose.tunnel.yml up --build"
   },
   "dependencies": {
     "@supabase/ssr": "^0.10.2",

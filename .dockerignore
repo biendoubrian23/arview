@@ -1,0 +1,10 @@
+.git
+.next
+.venv
+node_modules
+arview-jobs
+*.log
+*.tmp
+.env
+.env.*
+backend/TripoSR

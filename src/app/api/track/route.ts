@@ -25,7 +25,7 @@ export async function POST(req: NextRequest) {
       referrer: typeof referrer === "string" ? referrer.slice(0, 500) : null,
     });
     return NextResponse.json({ ok: true });
-  } catch (e) {
+  } catch {
     return NextResponse.json({ error: "internal" }, { status: 500 });
   }
 }

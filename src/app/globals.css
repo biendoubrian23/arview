@@ -111,3 +111,41 @@ html, body {
 
 /* Scan progress bar (dynamic width via CSS custom property) */
 .scan-progress { width: var(--scan-pct, 0%); transition: width 0.5s ease; }
+
+/* BoundingBoxCapture — 3D wireframe SVG glow */
+.box3d-svg { filter: drop-shadow(0 0 10px rgba(108,99,255,0.55)); }
+
+/* BoundingBoxCapture — 2D bounding box border */
+.bbox-border {
+  position: absolute;
+  inset: 0;
+  border-radius: 2px;
+  border: 2px solid rgba(255,255,255,0.92);
+  box-shadow: 0 0 0 1px rgba(108,99,255,0.4), 0 0 16px rgba(255,255,255,0.25);
+}
+
+/* BoundingBoxCapture — resize handle container */
+.bbox-handle {
+  position: absolute;
+  width: 20px;
+  height: 20px;
+  transform: translate(-50%, -50%);
+  touch-action: none;
+  z-index: 10;
+}
+
+/* BoundingBoxCapture — resize handle dot */
+.bbox-handle-dot {
+  width: 100%;
+  height: 100%;
+  border-radius: 9999px;
+  background: white;
+  box-shadow: 0 0 10px rgba(108,99,255,0.9), 0 0 3px white;
+}
+
+.capture-ring {
+  background:
+    conic-gradient(from -90deg, rgba(255,255,255,0.95) var(--capture-pct, 0deg), rgba(255,255,255,0.14) 0deg),
+    radial-gradient(circle, transparent 58%, rgba(255,255,255,0.18) 59%, transparent 61%);
+  mask: radial-gradient(circle, transparent 52%, #000 54%);
+}

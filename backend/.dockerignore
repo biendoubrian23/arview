@@ -1,0 +1,6 @@
+__pycache__
+processors/__pycache__
+*.pyc
+TripoSR
+.env
+.env.*

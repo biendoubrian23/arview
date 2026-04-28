@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import Link from "next/link";
 import { Sparkles, RotateCw } from "lucide-react";
 
@@ -20,51 +20,20 @@ export default function PublicViewer({
   brandColor: string;
 }) {
   const mvRef = useRef<HTMLElement | null>(null);
-  const startRef = useRef<number>(Date.now());
+  const startRef = useRef<number | null>(null);
   const arSentRef = useRef(false);
 
-  // Track view on mount + session_end on unmount
-  useEffect(() => {
-    track("view");
-    const onVisibility = () => {
-      if (document.visibilityState === "hidden") sendSessionEnd();
-    };
-    const onUnload = () => sendSessionEnd();
-    document.addEventListener("visibilitychange", onVisibility);
-    window.addEventListener("pagehide", onUnload);
-    return () => {
-      document.removeEventListener("visibilitychange", onVisibility);
-      window.removeEventListener("pagehide", onUnload);
-      sendSessionEnd();
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [modelId]);
-
-  // Track ar_activated when AR session starts
-  useEffect(() => {
-    const el = mvRef.current as (HTMLElement & { addEventListener: typeof window.addEventListener }) | null;
-    if (!el) return;
-    const onArStatus = (ev: Event) => {
-      const status = (ev as CustomEvent).detail?.status;
-      if (status === "session-started" && !arSentRef.current) {
-        arSentRef.current = true;
-        track("ar_activated");
-      }
-    };
-    el.addEventListener("ar-status", onArStatus as EventListener);
-    return () => el.removeEventListener("ar-status", onArStatus as EventListener);
-  }, []);
-
-  function track(type: "view" | "ar_activated") {
+  const track = useCallback((type: "view" | "ar_activated") => {
     fetch("/api/track", {
       method: "POST",
       headers: { "content-type": "application/json" },
       keepalive: true,
       body: JSON.stringify({ model_id: modelId, type, referrer: document.referrer }),
     }).catch(() => {});
-  }
+  }, [modelId]);
 
-  function sendSessionEnd() {
+  const sendSessionEnd = useCallback(() => {
+    if (startRef.current === null) return;
     const duration_ms = Date.now() - startRef.current;
     if (duration_ms < 1000) return;
     const data = JSON.stringify({
@@ -86,7 +55,39 @@ export default function PublicViewer({
         body: data,
       }).catch(() => {});
     }
-  }
+  }, [modelId]);
+
+  // Track view on mount + session_end on unmount
+  useEffect(() => {
+    startRef.current = Date.now();
+    track("view");
+    const onVisibility = () => {
+      if (document.visibilityState === "hidden") sendSessionEnd();
+    };
+    const onUnload = () => sendSessionEnd();
+    document.addEventListener("visibilitychange", onVisibility);
+    window.addEventListener("pagehide", onUnload);
+    return () => {
+      document.removeEventListener("visibilitychange", onVisibility);
+      window.removeEventListener("pagehide", onUnload);
+      sendSessionEnd();
+    };
+  }, [modelId, sendSessionEnd, track]);
+
+  // Track ar_activated when AR session starts
+  useEffect(() => {
+    const el = mvRef.current as (HTMLElement & { addEventListener: typeof window.addEventListener }) | null;
+    if (!el) return;
+    const onArStatus = (ev: Event) => {
+      const status = (ev as CustomEvent).detail?.status;
+      if (status === "session-started" && !arSentRef.current) {
+        arSentRef.current = true;
+        track("ar_activated");
+      }
+    };
+    el.addEventListener("ar-status", onArStatus as EventListener);
+    return () => el.removeEventListener("ar-status", onArStatus as EventListener);
+  }, [track]);
 
   function activateAR() {
     const el = mvRef.current as (HTMLElement & { activateAR?: () => void }) | null;
