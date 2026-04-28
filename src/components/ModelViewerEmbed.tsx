@@ -24,6 +24,7 @@ export default function ModelViewerEmbed({
   return (
     <model-viewer
       ref={ref as React.RefObject<HTMLElement>}
+      suppressHydrationWarning
       src={src}
       alt={alt}
       poster={poster}

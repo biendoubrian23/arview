@@ -140,16 +140,18 @@ export default function ModelDetailClient({
 
           <div className="glass rounded-3xl p-5 space-y-4">
             <h2 className="font-semibold">Lien partageable</h2>
-            <div className="flex items-center gap-2">
-              <code className="flex-1 truncate text-sm bg-[rgba(15,16,36,0.05)] rounded-xl px-3 py-2">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+              <code className="flex-1 truncate text-xs sm:text-sm bg-[rgba(15,16,36,0.05)] rounded-xl px-3 py-2 min-w-0">
                 {publicUrl}
               </code>
-              <button onClick={copy} className="btn-ghost" type="button">
-                <Copy className="h-4 w-4" /> {copied ? "Copié" : "Copier"}
-              </button>
-              <a href={publicUrl} target="_blank" className="btn-ghost">
-                <ExternalLink className="h-4 w-4" />
-              </a>
+              <div className="flex gap-2 shrink-0">
+                <button onClick={copy} className="btn-ghost flex-1 sm:flex-none text-sm" type="button">
+                  <Copy className="h-4 w-4" /> {copied ? "Copié !" : "Copier"}
+                </button>
+                <a href={publicUrl} target="_blank" rel="noopener noreferrer" title="Ouvrir le lien" aria-label="Ouvrir le lien dans un nouvel onglet" className="btn-ghost">
+                  <ExternalLink className="h-4 w-4" />
+                </a>
+              </div>
             </div>
 
             <div className="grid grid-cols-[auto_1fr] gap-4 items-center">
@@ -164,10 +166,10 @@ export default function ModelDetailClient({
                 <div className="h-28 w-28 rounded-xl bg-[rgba(15,16,36,0.05)] animate-pulse" />
               )}
               <div className="flex flex-col gap-2">
-                <button onClick={downloadPng} className="btn-ghost text-sm">
+                <button type="button" onClick={downloadPng} className="btn-ghost text-sm">
                   <Download className="h-4 w-4" /> Télécharger PNG
                 </button>
-                <button onClick={downloadSvg} className="btn-ghost text-sm">
+                <button type="button" onClick={downloadSvg} className="btn-ghost text-sm">
                   <Download className="h-4 w-4" /> Télécharger SVG
                 </button>
               </div>

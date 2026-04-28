@@ -1,0 +1,33 @@
+# ScanAR Backend — Python dependencies
+# Install with: pip install -r requirements.txt
+
+# Web framework
+fastapi>=0.115.0
+uvicorn[standard]>=0.34.0
+python-multipart>=0.0.20
+
+# Async HTTP (for Replicate API)
+aiohttp>=3.11.0
+
+# Image processing
+Pillow>=11.0.0
+opencv-python>=4.10.0
+
+# Background removal (optional but greatly improves TripoSR quality)
+# Use rembg[gpu] if you want GPU-accelerated background removal
+rembg>=2.0.62
+
+# Env file support
+python-dotenv>=1.0.0
+
+# Async file I/O
+aiofiles>=24.1.0
+
+# PyTorch — install SEPARATELY with CUDA support:
+#   pip install torch torchvision --index-url https://download.pytorch.org/whl/cu124
+# (cu124 = CUDA 12.4, compatible with RTX 4070 Ti)
+# Do NOT install torch from this file — the CUDA version matters!
+
+# TripoSR — install SEPARATELY:
+#   git clone https://github.com/SUDO-AI-3D/TripoSR.git
+#   pip install -e TripoSR/

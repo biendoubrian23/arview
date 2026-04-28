@@ -20,9 +20,9 @@ export default function LandingPage() {
     <main className="min-h-screen text-fg">
       {/* NAV */}
       <nav className="sticky top-0 z-50 backdrop-blur-md bg-white/70 border-b border-[rgba(15,16,36,0.08)]">
-        <div className="mx-auto max-w-6xl px-5 h-16 flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-2 font-bold">
-            <span className="inline-block h-7 w-7 rounded-lg bg-gradient-to-br from-[#6C63FF] to-[#00D4FF]" />
+        <div className="mx-auto max-w-6xl px-4 sm:px-5 h-14 sm:h-16 flex items-center justify-between gap-3">
+          <Link href="/" className="flex items-center gap-2 font-bold shrink-0">
+            <span className="inline-block h-7 w-7 rounded-lg bg-linear-to-br from-[#6C63FF] to-[#00D4FF]" />
             <span>ScanAR</span>
           </Link>
           <div className="hidden md:flex items-center gap-8 text-sm text-muted">
@@ -31,11 +31,13 @@ export default function LandingPage() {
             <a href="#pricing" className="hover:text-fg">Tarifs</a>
           </div>
           <div className="flex items-center gap-2">
-            <Link href="/login" className="text-sm text-muted hover:text-fg px-3 py-2">
+            <Link href="/login" className="hidden sm:inline-flex text-sm text-muted hover:text-fg px-3 py-2">
               Connexion
             </Link>
-            <Link href="/signup" className="btn-primary text-sm">
-              Commencer <ArrowRight className="h-4 w-4" />
+            <Link href="/signup" className="btn-primary text-sm py-2 px-4">
+              <span className="hidden sm:inline">Commencer</span>
+              <span className="sm:hidden">Démarrer</span>
+              <ArrowRight className="h-4 w-4" />
             </Link>
           </div>
         </div>
@@ -43,57 +45,57 @@ export default function LandingPage() {
 
       {/* HERO */}
       <section className="bg-blobs relative">
-        <div className="relative z-10 mx-auto max-w-6xl px-5 pt-20 pb-24 md:pt-32 md:pb-36 text-center">
+        <div className="relative z-10 mx-auto max-w-6xl px-4 sm:px-5 pt-16 pb-20 md:pt-32 md:pb-36 text-center">
           <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full glass text-xs text-muted mb-6">
             <Sparkles className="h-3.5 w-3.5 text-[#00D4FF]" />
             Réalité augmentée • Sans app • iPhone &amp; Android
           </span>
-          <h1 className="text-4xl md:text-7xl font-bold tracking-tight leading-[1.05]">
+          <h1 className="text-3xl sm:text-4xl md:text-7xl font-bold tracking-tight leading-[1.1] md:leading-[1.05]">
             Scanne. Partage. <br />
             <span className="gradient-text">Pose dans ton salon.</span>
           </h1>
-          <p className="mt-6 text-lg md:text-xl text-muted max-w-2xl mx-auto">
+          <p className="mt-5 text-base sm:text-lg md:text-xl text-muted max-w-2xl mx-auto">
             N&apos;importe quel objet en 3D dans le monde réel. Sans app. Via un simple lien.
           </p>
-          <div className="mt-10 flex flex-col sm:flex-row gap-3 justify-center">
+          <div className="mt-8 sm:mt-10 flex flex-col sm:flex-row gap-3 justify-center">
             <Link href="/signup" className="btn-primary">
               Commencer gratuitement <ArrowRight className="h-4 w-4" />
             </Link>
             <a href="#how" className="btn-ghost">Voir une démo</a>
           </div>
 
-          <div className="mt-12 mx-auto max-w-md glass rounded-2xl p-4 flex items-center gap-3">
-            <QrCode className="h-10 w-10 text-[#00D4FF]" />
-            <div className="text-left flex-1">
+          <div className="mt-10 mx-auto max-w-sm sm:max-w-md glass rounded-2xl p-4 flex items-center gap-3">
+            <QrCode className="h-9 w-9 sm:h-10 sm:w-10 text-[#00D4FF] shrink-0" />
+            <div className="text-left flex-1 min-w-0">
               <p className="text-xs text-muted">Lien partageable</p>
-              <p className="font-mono text-sm">scanar.io/m/example</p>
+              <p className="font-mono text-xs sm:text-sm truncate">scanar.io/m/example</p>
             </div>
-            <span className="text-xs text-muted">+2 000 objets cette semaine</span>
+            <span className="hidden sm:inline text-xs text-muted whitespace-nowrap">+2 000 objets/semaine</span>
           </div>
         </div>
       </section>
 
       {/* HOW IT WORKS */}
-      <section id="how" className="mx-auto max-w-6xl px-5 py-24">
-        <h2 className="text-3xl md:text-5xl font-bold text-center">Comment ça marche</h2>
-        <p className="mt-4 text-center text-muted max-w-2xl mx-auto">
+      <section id="how" className="mx-auto max-w-6xl px-4 sm:px-5 py-16 md:py-24">
+        <h2 className="text-2xl sm:text-3xl md:text-5xl font-bold text-center">Comment ça marche</h2>
+        <p className="mt-4 text-center text-muted max-w-2xl mx-auto text-sm sm:text-base">
           Trois étapes. 30 secondes chrono.
         </p>
-        <div className="mt-14 grid md:grid-cols-3 gap-5">
+        <div className="mt-10 md:mt-14 grid sm:grid-cols-3 gap-4 sm:gap-5">
           {[
             { icon: Camera, title: "Filme ton objet", desc: "Tourne autour pendant 30 secondes avec ton téléphone." },
             { icon: Link2, title: "Reçois un lien", desc: "QR code + URL générés instantanément." },
             { icon: Sparkles, title: "Pose-le partout", desc: "Tes visiteurs le voient en AR depuis leur navigateur." },
           ].map((s, i) => (
-            <div key={i} className="glass rounded-2xl p-7">
-              <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-[#6C63FF] to-[#00D4FF] flex items-center justify-center mb-5">
-                <s.icon className="h-6 w-6 text-white" />
+            <div key={i} className="glass rounded-2xl p-5 sm:p-7">
+              <div className="h-11 w-11 sm:h-12 sm:w-12 rounded-xl bg-linear-to-br from-[#6C63FF] to-[#00D4FF] flex items-center justify-center mb-4 sm:mb-5">
+                <s.icon className="h-5 w-5 sm:h-6 sm:w-6 text-white" />
               </div>
-              <h3 className="text-xl font-semibold">
+              <h3 className="text-lg sm:text-xl font-semibold">
                 <span className="text-muted text-sm mr-2">0{i + 1}.</span>
                 {s.title}
               </h3>
-              <p className="mt-2 text-muted">{s.desc}</p>
+              <p className="mt-2 text-muted text-sm sm:text-base">{s.desc}</p>
             </div>
           ))}
         </div>
@@ -101,11 +103,11 @@ export default function LandingPage() {
 
       {/* USE CASES */}
       <section id="use-cases" className="bg-bg-2 border-y border-[rgba(15,16,36,0.08)]">
-        <div className="mx-auto max-w-6xl px-5 py-24">
-          <h2 className="text-3xl md:text-5xl font-bold text-center">
+        <div className="mx-auto max-w-6xl px-4 sm:px-5 py-16 md:py-24">
+          <h2 className="text-2xl sm:text-3xl md:text-5xl font-bold text-center">
             Pour n&apos;importe quel objet du monde réel
           </h2>
-          <div className="mt-14 grid grid-cols-2 md:grid-cols-3 gap-4">
+          <div className="mt-10 md:mt-14 grid grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4">
             {[
               { i: Utensils, t: "Restaurants", d: "Vos clients voient le plat avant de commander." },
               { i: Sofa, t: "Déco & Meubles", d: "Essayez le canapé dans votre salon." },
@@ -125,13 +127,13 @@ export default function LandingPage() {
       </section>
 
       {/* DASHBOARD PREVIEW */}
-      <section className="mx-auto max-w-6xl px-5 py-24">
-        <div className="grid md:grid-cols-2 gap-10 items-center">
+      <section className="mx-auto max-w-6xl px-4 sm:px-5 py-16 md:py-24">
+        <div className="grid md:grid-cols-2 gap-8 md:gap-10 items-center">
           <div>
-            <h2 className="text-3xl md:text-5xl font-bold">
+            <h2 className="text-2xl sm:text-3xl md:text-5xl font-bold">
               Sachez qui interagit <br /> avec vos objets
             </h2>
-            <p className="mt-5 text-muted">
+            <p className="mt-4 sm:mt-5 text-muted text-sm sm:text-base">
               Un dashboard moderne avec analytics temps-réel.
             </p>
             <ul className="mt-6 space-y-3">
@@ -165,7 +167,7 @@ export default function LandingPage() {
                 </div>
               ))}
             </div>
-            <div className="mt-4 h-32 rounded-xl bg-gradient-to-tr from-[#6C63FF]/20 to-[#00D4FF]/20 flex items-end gap-1 p-3">
+            <div className="mt-4 h-32 rounded-xl bg-linear-to-tr from-[#6C63FF]/20 to-[#00D4FF]/20 flex items-end gap-1 p-3">
               {[40, 65, 50, 80, 55, 90, 75, 95, 70, 85, 60, 100].map((h, i) => (
                 <div
                   key={i}
@@ -180,10 +182,10 @@ export default function LandingPage() {
 
       {/* PRICING */}
       <section id="pricing" className="bg-bg-2 border-y border-[rgba(15,16,36,0.08)]">
-        <div className="mx-auto max-w-6xl px-5 py-24">
-          <h2 className="text-3xl md:text-5xl font-bold text-center">Tarifs simples</h2>
-          <p className="mt-4 text-center text-muted">Commence gratuitement, paie quand tu grandis.</p>
-          <div className="mt-14 grid md:grid-cols-3 gap-5">
+        <div className="mx-auto max-w-6xl px-4 sm:px-5 py-16 md:py-24">
+          <h2 className="text-2xl sm:text-3xl md:text-5xl font-bold text-center">Tarifs simples</h2>
+          <p className="mt-4 text-center text-muted text-sm sm:text-base">Commence gratuitement, paie quand tu grandis.</p>
+          <div className="mt-10 md:mt-14 grid sm:grid-cols-3 gap-4 sm:gap-5">
             {[
               { name: "Free", price: "0€", desc: "Pour commencer", features: ["5 modèles", "500 vues/mois", "Lien ScanAR"], cta: "Commencer" },
               { name: "Pro", price: "19€", desc: "Pour les pros", features: ["50 modèles", "10 000 vues/mois", "Lien personnalisable", "Stats avancées"], cta: "Choisir Pro", featured: true },
@@ -194,7 +196,7 @@ export default function LandingPage() {
                 className={`glass rounded-2xl p-7 relative ${p.featured ? "glow border-[#6C63FF]/40" : ""}`}
               >
                 {p.featured && (
-                  <span className="absolute -top-3 left-1/2 -translate-x-1/2 text-xs bg-gradient-to-r from-[#6C63FF] to-[#00D4FF] px-3 py-1 rounded-full">
+                  <span className="absolute -top-3 left-1/2 -translate-x-1/2 text-xs bg-linear-to-r from-[#6C63FF] to-[#00D4FF] px-3 py-1 rounded-full">
                     Plus populaire
                   </span>
                 )}
@@ -220,13 +222,13 @@ export default function LandingPage() {
 
       {/* FINAL CTA */}
       <section className="relative overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-br from-[#6C63FF] to-[#00D4FF] opacity-90" />
-        <div className="relative mx-auto max-w-3xl px-5 py-24 text-center">
-          <h2 className="text-3xl md:text-5xl font-bold text-white">
+        <div className="absolute inset-0 bg-linear-to-br from-[#6C63FF] to-[#00D4FF] opacity-90" />
+        <div className="relative mx-auto max-w-3xl px-4 sm:px-5 py-16 md:py-24 text-center">
+          <h2 className="text-2xl sm:text-3xl md:text-5xl font-bold text-white">
             Ton premier objet 3D en ligne dans 10 minutes.
           </h2>
-          <p className="mt-4 text-white/90">Gratuit. Sans carte bancaire.</p>
-          <Link href="/signup" className="mt-8 inline-flex items-center gap-2 bg-white text-fg font-semibold px-6 py-3 rounded-xl hover:bg-white/90 transition">
+          <p className="mt-4 text-white/90 text-sm sm:text-base">Gratuit. Sans carte bancaire.</p>
+          <Link href="/signup" className="mt-8 inline-flex items-center gap-2 bg-white text-fg font-semibold px-5 sm:px-6 py-3 rounded-xl hover:bg-white/90 transition text-sm sm:text-base">
             Créer mon compte gratuitement <ArrowRight className="h-4 w-4" />
           </Link>
         </div>
@@ -234,12 +236,12 @@ export default function LandingPage() {
 
       {/* FOOTER */}
       <footer className="border-t border-[rgba(15,16,36,0.08)]">
-        <div className="mx-auto max-w-6xl px-5 py-10 flex flex-col md:flex-row items-center justify-between gap-3 text-sm text-muted">
+        <div className="mx-auto max-w-6xl px-4 sm:px-5 py-8 sm:py-10 flex flex-col sm:flex-row items-center justify-between gap-3 text-sm text-muted">
           <div className="flex items-center gap-2">
-            <span className="inline-block h-5 w-5 rounded-md bg-gradient-to-br from-[#6C63FF] to-[#00D4FF]" />
+            <span className="inline-block h-5 w-5 rounded-md bg-linear-to-br from-[#6C63FF] to-[#00D4FF]" />
             <span>ScanAR</span>
           </div>
-          <p>© {new Date().getFullYear()} ScanAR. Tous droits réservés.</p>
+          <p suppressHydrationWarning>© {new Date().getFullYear()} ScanAR. Tous droits réservés.</p>
         </div>
       </footer>
     </main>

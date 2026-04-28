@@ -105,3 +105,9 @@ html, body {
 ::-webkit-scrollbar { width: 10px; height: 10px; }
 ::-webkit-scrollbar-thumb { background: rgba(15,16,36,0.15); border-radius: 10px; }
 ::-webkit-scrollbar-thumb:hover { background: rgba(15,16,36,0.25); }
+
+/* Scan progress arc (SVG) */
+.scan-arc { transition: stroke-dashoffset 0.5s ease; }
+
+/* Scan progress bar (dynamic width via CSS custom property) */
+.scan-progress { width: var(--scan-pct, 0%); transition: width 0.5s ease; }
