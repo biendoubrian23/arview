@@ -33,14 +33,14 @@ export async function POST(req: NextRequest) {
     const mime = imageFile.type || "image/jpeg";
     const dataUri = `data:${mime};base64,${b64}`;
 
-    const res = await fetch("https://api.replicate.com/v1/predictions", {
+    const res = await fetch(`https://api.replicate.com/v1/models/${REPLICATE_MODEL}/predictions`, {
       method: "POST",
       headers: {
         Authorization: `Token ${REPLICATE_TOKEN}`,
         "Content-Type": "application/json",
+        "Prefer": "wait",
       },
       body: JSON.stringify({
-        version: TRIPOSR_VERSION,
         input: { image: dataUri },
       }),
     });
