@@ -4,8 +4,9 @@ services:
       context: ./backend
       dockerfile: Dockerfile.gpu
       args:
-        CUDA_ARCHITECTURES: "120"
-        PYTORCH_INDEX_URL: "https://download.pytorch.org/whl/cu130"
+        CUDA_IMAGE: "nvidia/cuda:12.4.1-devel-ubuntu22.04"
+        CUDA_ARCHITECTURES: "89"
+        PYTORCH_INDEX_URL: "https://download.pytorch.org/whl/cu124"
         BUILD_OPENMVS: "0"
     image: arview-backend-gpu:local
     ports:
@@ -39,9 +40,17 @@ services:
       HOSTNAME: 0.0.0.0
       NODE_TLS_REJECT_UNAUTHORIZED: "0"
     volumes:
-      - ./:/app
+      - ./src:/app/src
+      - ./public:/app/public
+      - ./package.json:/app/package.json
+      - ./package-lock.json:/app/package-lock.json
+      - ./next.config.ts:/app/next.config.ts
+      - ./postcss.config.mjs:/app/postcss.config.mjs
+      - ./tsconfig.json:/app/tsconfig.json
+      - ./eslint.config.mjs:/app/eslint.config.mjs
+      - ./.npmrc:/app/.npmrc
       - arview-node-modules:/app/node_modules
-    command: sh -lc "npm ci && npm run dev -- --hostname 0.0.0.0 --port 3000"
+    command: sh -c "npm install && npm run dev -- --hostname 0.0.0.0 --port 3000"
     depends_on:
       - backend
     restart: unless-stopped
